@@ -1,31 +1,45 @@
-
+""" Initiaze the application with sql, flask_mqtt, blueprints"""
 from flask import Flask
-from .main.routes import main_bp
-from .admin.routes import admin_bp
+from flask_mqtt import Mqtt
+from flask_sqlalchemy import SQLAlchemy
+from config import Variables
+
+db = SQLAlchemy()
+mqtt = Mqtt()
 
 def create_app():
+    """ Create and bind application """
     app = Flask(__name__)
 
-    app.register_blueprint(main_bp)
-    app.register_blueprint(admin_bp)
+    # Configure SQLAlchemy
+    app.config['SQLALCHEMY_DATABASE_URI'] = Variables.SQLALCHEMY_DATABASE_URI
+    db.init_app(app)
+
+    # Configure MQTT
+    app.config['SECRET_KEY'] = app.config["SECRET_KEY"]
+    app.config['MQTT_BROKER_URL'] = Variables.MQTT_BROKER_URL
+    app.config['MQTT_BROKER_PORT'] = int(Variables.MQTT_BROKER_PORT)
+    app.config['MQTT_USERNAME'] = Variables.MQTT_BROKER_USERNAME
+    app.config['MQTT_PASSWORD'] = Variables.MQTT_BROKER_PASSWORD
+    app.config['MQTT_KEEPALIVE'] = 60
+    app.config['MQTT_TLS_ENABLED'] = False
+    app.config['MQTT_DEBUG'] = True
+    mqtt.init_app(app)
+
+    # Import and register blueprints
+    # Register the blueprints
+    from app.my_blueprint_1 import blueprint_1
+    app.register_blueprint(blueprint_1, url_prefix='/blueprint_1')
+
+    from app.my_blueprint_2 import blueprint_2
+    app.register_blueprint(blueprint_2, url_prefix='/blueprint_2')
+
+    from app.error_pages import bp_page_error
+    app.register_blueprint(bp_page_error)
+
+    # Import models and create database tables
+    from models import models
+    with app.app_context():
+        db.create_all()
 
     return app
-"""
-
-import os
-from flask import Flask
-
-def create_app():
-    app = Flask(__name__)
-
-    # Register blueprints dynamically
-    for foldername in os.listdir(os.path.dirname(__file__)):
-        if os.path.isdir(os.path.join(os.path.dirname(__file__), foldername)) and foldername != "__pycache__" and foldername != "templates" and foldername != "static":
-            module_name = f"app.{foldername}.routes"
-            blueprint = __import__(module_name, fromlist=['app'])
-
-            if hasattr(blueprint, "bp"):
-                app.register_blueprint(blueprint.bp)
-
-    return app
-"""
